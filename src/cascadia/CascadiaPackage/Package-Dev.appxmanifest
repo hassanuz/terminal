@@ -16,7 +16,7 @@
 
   <Properties>
     <DisplayName>ms-resource:AppNameDev</DisplayName>
-    <PublisherDisplayName></PublisherDisplayName>
+    <PublisherDisplayName>lonedev</PublisherDisplayName>
     <Logo>Images\StoreLogo.png</Logo>
   </Properties>
 
