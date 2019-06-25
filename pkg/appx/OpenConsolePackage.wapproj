@@ -25,7 +25,8 @@
   </PropertyGroup>
   <PropertyGroup>
     <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
-    <PackageCertificateThumbprint>FFB99175C326EEDE78B7136CE253390D2853481A</PackageCertificateThumbprint>
+    <PackageCertificateThumbprint>A21E69903EA956FC13B11877A974DC68A37E3BE6</PackageCertificateThumbprint>
+    <PackageCertificateKeyFile>OpenConsolePackage_TemporaryKey.pfx</PackageCertificateKeyFile>
   </PropertyGroup>
   <ItemGroup Condition="Exists('OpenConsolePackage_TemporaryKey.pfx')">
     <None Include="OpenConsolePackage_TemporaryKey.pfx" />
