@@ -28,17 +28,6 @@
     <EntryPointProjectUniqueName>..\WindowsTerminal\WindowsTerminal.vcxproj</EntryPointProjectUniqueName>
   </PropertyGroup>
 
-  <PropertyGroup Condition="!Exists('CascadiaPackage_TemporaryKey.pfx')">
-    <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
-    <AppxBundle>Never</AppxBundle>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="Exists('CascadiaPackage_TemporaryKey.pfx')">
-    <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
-    <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
-    <PackageCertificateKeyFile>CascadiaPackage_TemporaryKey.pfx</PackageCertificateKeyFile>
-  </PropertyGroup>
-
   <ItemGroup Condition="Exists('CascadiaPackage_TemporaryKey.pfx')">
     <None Include="CascadiaPackage_TemporaryKey.pfx" />
   </ItemGroup>
