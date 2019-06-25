@@ -94,7 +94,7 @@ namespace Cascadia.UI.Tests
             session.PerformActions(new List<ActionSequence> { sequence2 });
             Assert.IsNotNull(session.FindElementByName("C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"));
         }
-
+        /*
         [TestMethod]
         public void Feedback()
         {
@@ -113,10 +113,12 @@ namespace Cascadia.UI.Tests
             FeedBackButton.Click();
             session.Keyboard.SendKeys(Keys.Alt + Keys.Tab + Keys.Alt + Keys.Tab);
         }
+        */
 
         [TestMethod]
         public void CreateAndCloseMultipleTabs()
         {
+
             Assert.IsNotNull(session.FindElementByAccessibilityId("CloseButton"));
             session.Keyboard.SendKeys(Keys.LeftControl + "t" + Keys.LeftControl);
             session.Keyboard.SendKeys(Keys.LeftControl + "t" + Keys.LeftControl);
