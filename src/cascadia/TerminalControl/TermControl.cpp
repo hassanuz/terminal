@@ -22,12 +22,12 @@ using namespace winrt::Microsoft::Terminal::Settings;
 namespace winrt::Microsoft::Terminal::TerminalControl::implementation
 {
     TermControl::TermControl() :
-        TermControl(Settings::TerminalSettings{})
+        TermControl(Settings::TerminalSettings{}, TerminalConnection::ITerminalConnection{ nullptr })
     {
     }
 
-    TermControl::TermControl(Settings::IControlSettings settings) :
-        _connection{ TerminalConnection::ConhostConnection(winrt::to_hstring("cmd.exe"), winrt::hstring(), 30, 80, winrt::guid()) },
+    TermControl::TermControl(Settings::IControlSettings settings, TerminalConnection::ITerminalConnection connection) :
+        _connection{ connection },
         _initializedTerminal{ false },
         _root{ nullptr },
         _controlRoot{ nullptr },
@@ -98,7 +98,6 @@ namespace winrt::Microsoft::Terminal::TerminalControl::implementation
         _controlRoot.Content(_root);
 
         _ApplyUISettings();
-        _ApplyConnectionSettings();
 
         // These are important:
         // 1. When we get tapped, focus us
@@ -172,9 +171,9 @@ namespace winrt::Microsoft::Terminal::TerminalControl::implementation
         uint32_t bg = _settings.DefaultBackground();
         _BackgroundColorChanged(bg);
 
-        // Apply padding to the root Grid
+        // Apply padding as swapChainPanel's margin
         auto thickness = _ParseThicknessFromPadding(_settings.Padding());
-        _root.Padding(thickness);
+        _swapChainPanel.Margin(thickness);
 
         // Initialize our font information.
         const auto* fontFace = _settings.FontFace().c_str();
@@ -341,16 +340,6 @@ namespace winrt::Microsoft::Terminal::TerminalControl::implementation
                 _settings.DefaultBackground(RGB(R, G, B));
             }
         });
-    }
-
-    // Method Description:
-    // - Create a connection based on the values in our settings object.
-    //   * Gets the commandline and working directory out of the _settings and
-    //     creates a ConhostConnection with the given commandline and starting
-    //     directory.
-    void TermControl::_ApplyConnectionSettings()
-    {
-        _connection = TerminalConnection::ConhostConnection(_settings.Commandline(), _settings.StartingDirectory(), 30, 80, winrt::guid());
     }
 
     TermControl::~TermControl()
@@ -627,15 +616,18 @@ namespace winrt::Microsoft::Terminal::TerminalControl::implementation
             return;
         }
 
-        auto modifiers = _GetPressedModifierKeys();
-
+        const auto modifiers = _GetPressedModifierKeys();
         const auto vkey = static_cast<WORD>(e.OriginalKey());
 
         bool handled = false;
         auto bindings = _settings.KeyBindings();
         if (bindings)
         {
-            KeyChord chord(modifiers, vkey);
+            KeyChord chord(
+                WI_IsAnyFlagSet(modifiers, CTRL_PRESSED),
+                WI_IsAnyFlagSet(modifiers, ALT_PRESSED),
+                WI_IsFlagSet(modifiers, SHIFT_PRESSED),
+                vkey);
             handled = bindings.TryKeyChord(chord);
         }
 
@@ -645,10 +637,7 @@ namespace winrt::Microsoft::Terminal::TerminalControl::implementation
             // If the terminal translated the key, mark the event as handled.
             // This will prevent the system from trying to get the character out
             // of it and sending us a CharacterRecieved event.
-            handled = _terminal->SendKeyEvent(vkey,
-                                              WI_IsFlagSet(modifiers, KeyModifiers::Ctrl),
-                                              WI_IsFlagSet(modifiers, KeyModifiers::Alt),
-                                              WI_IsFlagSet(modifiers, KeyModifiers::Shift));
+            handled = _terminal->SendKeyEvent(vkey, modifiers);
 
             if (_cursorTimer.has_value())
             {
@@ -1091,7 +1080,10 @@ namespace winrt::Microsoft::Terminal::TerminalControl::implementation
     }
 
     // Method Description:
-    // - Process a resize event that was initiated by the user. This can either be due to the user resizing the window (causing the swapchain to resize) or due to the DPI changing (causing us to need to resize the buffer to match)
+    // - Process a resize event that was initiated by the user. This can either
+    //   be due to the user resizing the window (causing the swapchain to
+    //   resize) or due to the DPI changing (causing us to need to resize the
+    //   buffer to match)
     // Arguments:
     // - newWidth: the new width of the swapchain, in pixels.
     // - newHeight: the new height of the swapchain, in pixels.
@@ -1100,6 +1092,13 @@ namespace winrt::Microsoft::Terminal::TerminalControl::implementation
         SIZE size;
         size.cx = static_cast<long>(newWidth);
         size.cy = static_cast<long>(newHeight);
+
+        // Don't actually resize so small that a single character wouldn't fit
+        // in either dimension. The buffer really doesn't like being size 0.
+        if (size.cx < _actualFont.GetSize().X || size.cy < _actualFont.GetSize().Y)
+        {
+            return;
+        }
 
         // Tell the dx engine that our window is now the new size.
         THROW_IF_FAILED(_renderEngine->SetWindowSize(size));
@@ -1363,6 +1362,48 @@ namespace winrt::Microsoft::Terminal::TerminalControl::implementation
     }
 
     // Method Description:
+    // - Get the size of a single character of this control. The size is in
+    //   DIPs. If you need it in _pixels_, you'll need to multiply by the
+    //   current display scaling.
+    // Arguments:
+    // - <none>
+    // Return Value:
+    // - The dimensions of a single character of this control, in DIPs
+    winrt::Windows::Foundation::Size TermControl::CharacterDimensions() const
+    {
+        const auto fontSize = _actualFont.GetSize();
+        return { gsl::narrow_cast<float>(fontSize.X), gsl::narrow_cast<float>(fontSize.Y) };
+    }
+
+    // Method Description:
+    // - Get the absolute minimum size that this control can be resized to and
+    //   still have 1x1 character visible. This includes the space needed for
+    //   the scrollbar and the padding.
+    // Arguments:
+    // - <none>
+    // Return Value:
+    // - The minimum size that this terminal control can be resized to and still
+    //   have a visible character.
+    winrt::Windows::Foundation::Size TermControl::MinimumSize() const
+    {
+        const auto fontSize = _actualFont.GetSize();
+        double width = fontSize.X;
+        double height = fontSize.Y;
+        // Reserve additional space if scrollbar is intended to be visible
+        if (_settings.ScrollState() == ScrollbarState::Visible)
+        {
+            width += _scrollBar.ActualWidth();
+        }
+
+        // Account for the size of any padding
+        auto thickness = _ParseThicknessFromPadding(_settings.Padding());
+        width += thickness.Left + thickness.Right;
+        height += thickness.Top + thickness.Bottom;
+
+        return { gsl::narrow_cast<float>(width), gsl::narrow_cast<float>(height) };
+    }
+
+    // Method Description:
     // - Create XAML Thickness object based on padding props provided.
     //   Used for controlling the TermControl XAML Grid container's Padding prop.
     // Arguments:
@@ -1424,8 +1465,8 @@ namespace winrt::Microsoft::Terminal::TerminalControl::implementation
     //   find out which modifiers (ctrl, alt, shift) are pressed in events that
     //   don't necessarily include that state.
     // Return Value:
-    // - a KeyModifiers value with flags set for each key that's pressed.
-    Settings::KeyModifiers TermControl::_GetPressedModifierKeys() const
+    // - The combined ControlKeyState flags as a bitfield.
+    DWORD TermControl::_GetPressedModifierKeys() const
     {
         CoreWindow window = CoreWindow::GetForCurrentThread();
         // DONT USE
@@ -1435,17 +1476,31 @@ namespace winrt::Microsoft::Terminal::TerminalControl::implementation
         // Sometimes with the key down, the state is Down | Locked.
         // Sometimes with the key up, the state is Locked.
         // IsFlagSet(Down) is the only correct solution.
-        const auto ctrlKeyState = window.GetKeyState(VirtualKey::Control);
-        const auto shiftKeyState = window.GetKeyState(VirtualKey::Shift);
-        const auto altKeyState = window.GetKeyState(VirtualKey::Menu);
 
-        const auto ctrl = WI_IsFlagSet(ctrlKeyState, CoreVirtualKeyStates::Down);
-        const auto shift = WI_IsFlagSet(shiftKeyState, CoreVirtualKeyStates::Down);
-        const auto alt = WI_IsFlagSet(altKeyState, CoreVirtualKeyStates::Down);
+        struct KeyModifier
+        {
+            VirtualKey vkey;
+            DWORD flag;
+        };
 
-        return KeyModifiers{ (ctrl ? Settings::KeyModifiers::Ctrl : Settings::KeyModifiers::None) |
-                             (alt ? Settings::KeyModifiers::Alt : Settings::KeyModifiers::None) |
-                             (shift ? Settings::KeyModifiers::Shift : Settings::KeyModifiers::None) };
+        constexpr std::array<KeyModifier, 5> modifiers{ {
+            { VirtualKey::RightMenu, RIGHT_ALT_PRESSED },
+            { VirtualKey::LeftMenu, LEFT_ALT_PRESSED },
+            { VirtualKey::RightControl, RIGHT_CTRL_PRESSED },
+            { VirtualKey::LeftControl, LEFT_CTRL_PRESSED },
+            { VirtualKey::Shift, SHIFT_PRESSED },
+        } };
+
+        DWORD flags = 0;
+
+        for (const auto& mod : modifiers)
+        {
+            const auto state = window.GetKeyState(mod.vkey);
+            const auto isDown = WI_IsFlagSet(state, CoreVirtualKeyStates::Down);
+            flags |= isDown ? mod.flag : 0;
+        }
+
+        return flags;
     }
 
     // Method Description:
@@ -1472,8 +1527,8 @@ namespace winrt::Microsoft::Terminal::TerminalControl::implementation
     {
         // Exclude padding from cursor position calculation
         COORD terminalPosition = {
-            static_cast<SHORT>(cursorPosition.X - _root.Padding().Left),
-            static_cast<SHORT>(cursorPosition.Y - _root.Padding().Top)
+            static_cast<SHORT>(cursorPosition.X - _swapChainPanel.Margin().Left),
+            static_cast<SHORT>(cursorPosition.Y - _swapChainPanel.Margin().Top)
         };
 
         const auto fontSize = _actualFont.GetSize();
