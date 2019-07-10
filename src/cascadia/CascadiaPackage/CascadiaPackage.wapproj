@@ -282,6 +282,7 @@
       $(WapProjBeforeGenerateAppxManifestDependsOn);
       _ConsoleInjectMUXWinmdIntoReferences;
     </WapProjBeforeGenerateAppxManifestDependsOn>
+    <PackageCertificateThumbprint>B2F61E72806A4814EECC9185EF7E8BC899CD0A65</PackageCertificateThumbprint>
   </PropertyGroup>
   <Target Name="_ConsoleInjectMUXWinmdIntoReferences">
     <ItemGroup>
@@ -306,7 +307,8 @@
         <!-- Override the filename for OpenConsole.exe (only) -->
         <TargetPath Condition="'%(Filename)' == 'OpenConsole' and '%(Extension)' == '.exe'">conhost.exe</TargetPath>
         <!-- Blank the SourceProject here to vend all files into the root of the package. -->
-        <SourceProject></SourceProject>
+        <SourceProject>
+        </SourceProject>
       </_FilteredNonWapProjProjectOutput>
     </ItemGroup>
   </Target>

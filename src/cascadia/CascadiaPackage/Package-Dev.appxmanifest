@@ -11,12 +11,12 @@
 
   <Identity
     Name="WindowsTerminalDev"
-    Publisher="CN=hauraize"
+    Publisher="CN=Microsoft"
     Version="0.0.1.0" />
 
   <Properties>
     <DisplayName>ms-resource:AppNameDev</DisplayName>
-    <PublisherDisplayName>lonedev</PublisherDisplayName>
+    <PublisherDisplayName>Microsoft</PublisherDisplayName>
     <Logo>Images\StoreLogo.png</Logo>
   </Properties>
 
