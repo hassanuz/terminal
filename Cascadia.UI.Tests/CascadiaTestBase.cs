@@ -33,7 +33,7 @@ namespace Cascadia.UI.Tests
         protected static WindowsDriver<WindowsElement> session;
         protected static WindowsDriver<WindowsElement> DesktopSession;
         private TestContext testContextInstance;
-        private const int hostedAgentTimer = 45000; //45000
+        private const int hostedAgentTimer = 145000; //45000
 
         public static void Setup(TestContext context)
         {
@@ -44,6 +44,7 @@ namespace Cascadia.UI.Tests
                 appCapabilities.SetCapability("deviceName", "WindowsPC");
                 DesktopSession = null;
                 appCapabilities.SetCapability("app", AppId);
+                Thread.Sleep(10000);
                 try
                 {
                     Console.WriteLine("Trying to Launch App");
