@@ -19,7 +19,7 @@ Pane::Pane(const GUID& profile, const TermControl& control, const bool lastFocus
     _lastFocused{ lastFocused },
     _profile{ profile }
 {
-    _root.Children().Append(_control.GetControl());
+    _root.Children().Append(_control);
     _connectionClosedToken = _control.ConnectionClosed({ this, &Pane::_ControlClosedHandler });
 
     // Set the background of the pane to match that of the theme's default grid
@@ -188,6 +188,95 @@ bool Pane::ResizePane(const Direction& direction)
 }
 
 // Method Description:
+// - Attempts to handle moving focus to one of our children. If our split
+//   direction isn't appropriate for the move direction, then we'll return
+//   false, to try and let our parent handle the move. If our child we'd move
+//   focus to is already focused, we'll also return false, to again let our
+//   parent try and handle the focus movement.
+// Arguments:
+// - direction: The direction to move the focus in.
+// Return Value:
+// - true if we handled this focus move request.
+bool Pane::_NavigateFocus(const Direction& direction)
+{
+    if (!DirectionMatchesSplit(direction, _splitState))
+    {
+        return false;
+    }
+
+    const bool focusSecond = (direction == Direction::Right) || (direction == Direction::Down);
+
+    const auto newlyFocusedChild = focusSecond ? _secondChild : _firstChild;
+
+    // If the child we want to move focus to is _already_ focused, return false,
+    // to try and let our parent figure it out.
+    if (newlyFocusedChild->WasLastFocused())
+    {
+        return false;
+    }
+
+    // Transfer focus to our child, and update the focus of our tree.
+    newlyFocusedChild->_FocusFirstChild();
+    UpdateFocus();
+
+    return true;
+}
+
+// Method Description:
+// - Attempts to move focus to one of our children. If we have a focused child,
+//   we'll try to move the focus in the direction requested.
+//   - If there isn't a pane that exists as a child of this pane in the correct
+//     direction, we'll return false. This will indicate to our parent that they
+//     should try and move the focus themselves. In this way, the focus can move
+//     up and down the tree to the correct pane.
+// - This method is _very_ similar to ResizePane. Both are trying to find the
+//   right separator to move (focus) in a direction.
+// Arguments:
+// - direction: The direction to move the focus in.
+// Return Value:
+// - true if we or a child handled this focus move request.
+bool Pane::NavigateFocus(const Direction& direction)
+{
+    // If we're a leaf, do nothing. We can't possibly have a descendant with a
+    // separator the correct direction.
+    if (_IsLeaf())
+    {
+        return false;
+    }
+
+    // Check if either our first or second child is the currently focused leaf.
+    // If it is, and the requested move direction matches our separator, then
+    // we're the pane that needs to handle this focus move.
+    const bool firstIsFocused = _firstChild->_IsLeaf() && _firstChild->_lastFocused;
+    const bool secondIsFocused = _secondChild->_IsLeaf() && _secondChild->_lastFocused;
+    if (firstIsFocused || secondIsFocused)
+    {
+        return _NavigateFocus(direction);
+    }
+    else
+    {
+        // If neither of our children were the focused leaf, then recurse into
+        // our children and see if they can handle the focus move.
+        // For each child, if it has a focused descendant, try having that child
+        // handle the focus move.
+        // If the child wasn't able to handle the focus move, it's possible that
+        // there were no descendants with a separator the correct direction. If
+        // our separator _is_ the correct direction, then we should be the pane
+        // to move focus into our other child. Otherwise, just return false, as
+        // we couldn't handle it either.
+        if ((!_firstChild->_IsLeaf()) && _firstChild->_HasFocusedChild())
+        {
+            return _firstChild->NavigateFocus(direction) || _NavigateFocus(direction);
+        }
+        else if ((!_secondChild->_IsLeaf()) && _secondChild->_HasFocusedChild())
+        {
+            return _secondChild->NavigateFocus(direction) || _NavigateFocus(direction);
+        }
+    }
+    return false;
+}
+
+// Method Description:
 // - Called when our attached control is closed. Triggers listeners to our close
 //   event, if we're a leaf pane.
 // - If this was called, and we became a parent pane (due to work on another
@@ -217,6 +306,18 @@ void Pane::_ControlClosedHandler()
         // Fire our Closed event to tell our parent that we should be removed.
         _closedHandlers();
     }
+}
+
+// Method Description:
+// - Fire our Closed event to tell our parent that we should be removed.
+// Arguments:
+// - <none>
+// Return Value:
+// - <none>
+void Pane::Close()
+{
+    // Fire our Closed event to tell our parent that we should be removed.
+    _closedHandlers();
 }
 
 // Method Description:
@@ -325,7 +426,7 @@ bool Pane::_HasFocusedChild() const noexcept
     // We're intentionally making this one giant expression, so the compiler
     // will skip the following lookups if one of the lookups before it returns
     // true
-    return (_control && _control.GetControl().FocusState() != FocusState::Unfocused) ||
+    return (_control && _control.FocusState() != FocusState::Unfocused) ||
            (_firstChild && _firstChild->_HasFocusedChild()) ||
            (_secondChild && _secondChild->_HasFocusedChild());
 }
@@ -344,7 +445,7 @@ void Pane::UpdateFocus()
     if (_IsLeaf())
     {
         const auto controlFocused = _control &&
-                                    _control.GetControl().FocusState() != FocusState::Unfocused;
+                                    _control.FocusState() != FocusState::Unfocused;
 
         _lastFocused = controlFocused;
     }
@@ -367,7 +468,7 @@ void Pane::_FocusFirstChild()
 {
     if (_IsLeaf())
     {
-        _control.GetControl().Focus(FocusState::Programmatic);
+        _control.Focus(FocusState::Programmatic);
     }
     else
     {
@@ -463,11 +564,11 @@ void Pane::_CloseChild(const bool closeFirst)
         _separatorRoot = { nullptr };
 
         // Reattach the TermControl to our grid.
-        _root.Children().Append(_control.GetControl());
+        _root.Children().Append(_control);
 
         if (_lastFocused)
         {
-            _control.GetControl().Focus(FocusState::Programmatic);
+            _control.Focus(FocusState::Programmatic);
         }
 
         _splitState = SplitState::None;
@@ -677,6 +778,31 @@ void Pane::_ApplySplitDefinitions()
 }
 
 // Method Description:
+// - Determines whether the pane can be split vertically
+// Arguments:
+// - splitType: what type of split we want to create.
+// Return Value:
+// - True if the pane can be split vertically. False otherwise.
+bool Pane::CanSplitVertical()
+{
+    if (!_IsLeaf())
+    {
+        if (_firstChild->_HasFocusedChild())
+        {
+            return _firstChild->CanSplitVertical();
+        }
+        else if (_secondChild->_HasFocusedChild())
+        {
+            return _secondChild->CanSplitVertical();
+        }
+
+        return false;
+    }
+
+    return _CanSplit(SplitState::Vertical);
+}
+
+// Method Description:
 // - Vertically split the focused pane in our tree of panes, and place the given
 //   TermControl into the newly created pane. If we're the focused pane, then
 //   we'll create two new children, and place them side-by-side in our Grid.
@@ -706,6 +832,31 @@ void Pane::SplitVertical(const GUID& profile, const TermControl& control)
 }
 
 // Method Description:
+// - Determines whether the pane can be split horizontally
+// Arguments:
+// - splitType: what type of split we want to create.
+// Return Value:
+// - True if the pane can be split horizontally. False otherwise.
+bool Pane::CanSplitHorizontal()
+{
+    if (!_IsLeaf())
+    {
+        if (_firstChild->_HasFocusedChild())
+        {
+            return _firstChild->CanSplitHorizontal();
+        }
+        else if (_secondChild->_HasFocusedChild())
+        {
+            return _secondChild->CanSplitHorizontal();
+        }
+
+        return false;
+    }
+
+    return _CanSplit(SplitState::Horizontal);
+}
+
+// Method Description:
 // - Horizontally split the focused pane in our tree of panes, and place the given
 //   TermControl into the newly created pane. If we're the focused pane, then
 //   we'll create two new children, and place them side-by-side in our Grid.
@@ -731,6 +882,40 @@ void Pane::SplitHorizontal(const GUID& profile, const TermControl& control)
     }
 
     _Split(SplitState::Horizontal, profile, control);
+}
+
+// Method Description:
+// - Determines whether the pane can be split.
+// Arguments:
+// - splitType: what type of split we want to create.
+// Return Value:
+// - True if the pane can be split. False otherwise.
+bool Pane::_CanSplit(SplitState splitType)
+{
+    const bool changeWidth = _splitState == SplitState::Vertical;
+
+    const Size actualSize{ gsl::narrow_cast<float>(_root.ActualWidth()),
+                           gsl::narrow_cast<float>(_root.ActualHeight()) };
+
+    const Size minSize = _GetMinSize();
+
+    if (splitType == SplitState::Vertical)
+    {
+        const auto widthMinusSeparator = actualSize.Width - PaneSeparatorSize;
+        const auto newWidth = widthMinusSeparator * Half;
+
+        return newWidth > minSize.Width;
+    }
+
+    if (splitType == SplitState::Horizontal)
+    {
+        const auto heightMinusSeparator = actualSize.Height - PaneSeparatorSize;
+        const auto newHeight = heightMinusSeparator * Half;
+
+        return newHeight > minSize.Height;
+    }
+
+    return false;
 }
 
 // Method Description:

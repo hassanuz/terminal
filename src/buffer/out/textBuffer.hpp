@@ -105,6 +105,7 @@ public:
     bool IncrementCircularBuffer();
 
     COORD GetLastNonSpaceCharacter() const;
+    COORD GetLastNonSpaceCharacter(const Microsoft::Console::Types::Viewport viewport) const;
 
     Cursor& GetCursor();
     const Cursor& GetCursor() const;
@@ -143,6 +144,11 @@ public:
                                            const std::vector<SMALL_RECT>& selectionRects,
                                            std::function<COLORREF(TextAttribute&)> GetForegroundColor,
                                            std::function<COLORREF(TextAttribute&)> GetBackgroundColor) const;
+
+    static std::string GenHTML(const TextAndColor& rows,
+                               const int fontHeightPoints,
+                               const PCWCHAR fontFaceName,
+                               const std::string& htmlTitle);
 
 private:
     std::deque<ROW> _storage;

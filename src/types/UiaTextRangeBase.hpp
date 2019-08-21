@@ -3,24 +3,26 @@ Copyright (c) Microsoft Corporation
 Licensed under the MIT license.
 
 Module Name:
-- UiaTextRange.hpp
+- UiaTextRangeBase.hpp
 
 Abstract:
 - This module provides UI Automation access to the text of the console
   window to support both automation tests and accessibility (screen
   reading) applications.
+- ConHost and Windows Terminal must implement their own virtual functions separately.
 
 Author(s):
 - Austin Diviness (AustDi)     2017
+- Carlos Zamora   (CaZamor)    2019
 --*/
 
 #pragma once
 
 #include "precomp.h"
 
-#include "../inc/IConsoleWindow.hpp"
-#include "../types/inc/viewport.hpp"
-#include "../../buffer/out/cursor.h"
+#include "inc/viewport.hpp"
+#include "../buffer/out/textBuffer.hpp"
+#include "IUiaData.h"
 
 #include <deque>
 #include <tuple>
@@ -29,7 +31,7 @@ Author(s):
 class UiaTextRangeTests;
 #endif
 
-// The UiaTextRange deals with several data structures that have
+// The UiaTextRangeBase deals with several data structures that have
 // similar semantics. In order to keep the information from these data
 // structures separated, each structure has its own naming for a
 // row.
@@ -69,9 +71,9 @@ typedef unsigned int Endpoint;
 
 constexpr IdType InvalidId = 0;
 
-namespace Microsoft::Console::Interactivity::Win32
+namespace Microsoft::Console::Types
 {
-    class UiaTextRange final : public ITextRangeProvider
+    class UiaTextRangeBase : public ITextRangeProvider
     {
     private:
         static IdType id;
@@ -114,7 +116,8 @@ namespace Microsoft::Console::Interactivity::Win32
             // direction moving
             MovementDirection Direction;
 
-            MoveState(const UiaTextRange& range,
+            MoveState(IUiaData* pData,
+                      const UiaTextRangeBase& range,
                       const MovementDirection direction);
 
         private:
@@ -134,31 +137,16 @@ namespace Microsoft::Console::Interactivity::Win32
         };
 
     public:
-        static std::deque<UiaTextRange*> GetSelectionRanges(_In_ IRawElementProviderSimple* pProvider);
-
-        // degenerate range
-        static UiaTextRange* Create(_In_ IRawElementProviderSimple* const pProvider);
-
-        // degenerate range at cursor position
-        static UiaTextRange* Create(_In_ IRawElementProviderSimple* const pProvider,
-                                    const Cursor& cursor);
-
-        // specific endpoint range
-        static UiaTextRange* Create(_In_ IRawElementProviderSimple* const pProvider,
-                                    const Endpoint start,
-                                    const Endpoint end,
-                                    const bool degenerate);
-
-        // range from a UiaPoint
-        static UiaTextRange* Create(_In_ IRawElementProviderSimple* const pProvider,
-                                    const UiaPoint point);
-
-        ~UiaTextRange();
+        virtual ~UiaTextRangeBase() = default;
 
         const IdType GetId() const;
         const Endpoint GetStart() const;
         const Endpoint GetEnd() const;
         const bool IsDegenerate() const;
+
+        // TODO GitHub #605:
+        // only used for UiaData::FindText. Remove after Search added properly
+        void SetRangeValues(const Endpoint start, const Endpoint end, const bool isDegenerate);
 
         // IUnknown methods
         IFACEMETHODIMP_(ULONG)
@@ -169,7 +157,7 @@ namespace Microsoft::Console::Interactivity::Win32
                                       _COM_Outptr_result_maybenull_ void** ppInterface);
 
         // ITextRangeProvider methods
-        IFACEMETHODIMP Clone(_Outptr_result_maybenull_ ITextRangeProvider** ppRetVal);
+        virtual IFACEMETHODIMP Clone(_Outptr_result_maybenull_ ITextRangeProvider** ppRetVal) = 0;
         IFACEMETHODIMP Compare(_In_opt_ ITextRangeProvider* pRange, _Out_ BOOL* pRetVal);
         IFACEMETHODIMP CompareEndpoints(_In_ TextPatternRangeEndpoint endpoint,
                                         _In_ ITextRangeProvider* pTargetRange,
@@ -180,10 +168,10 @@ namespace Microsoft::Console::Interactivity::Win32
                                      _In_ VARIANT val,
                                      _In_ BOOL searchBackward,
                                      _Outptr_result_maybenull_ ITextRangeProvider** ppRetVal);
-        IFACEMETHODIMP FindText(_In_ BSTR text,
-                                _In_ BOOL searchBackward,
-                                _In_ BOOL ignoreCase,
-                                _Outptr_result_maybenull_ ITextRangeProvider** ppRetVal);
+        virtual IFACEMETHODIMP FindText(_In_ BSTR text,
+                                        _In_ BOOL searchBackward,
+                                        _In_ BOOL ignoreCase,
+                                        _Outptr_result_maybenull_ ITextRangeProvider** ppRetVal) = 0;
         IFACEMETHODIMP GetAttributeValue(_In_ TEXTATTRIBUTEID textAttributeId,
                                          _Out_ VARIANT* pRetVal);
         IFACEMETHODIMP GetBoundingRectangles(_Outptr_result_maybenull_ SAFEARRAY** ppRetVal);
@@ -208,31 +196,36 @@ namespace Microsoft::Console::Interactivity::Win32
 
     protected:
 #if _DEBUG
-        void _outputRowConversions();
+        void _outputRowConversions(IUiaData* pData);
         void _outputObjectState();
 #endif
+        IUiaData* const _pData;
 
-        IRawElementProviderSimple* const _pProvider;
+        wil::com_ptr<IRawElementProviderSimple> const _pProvider;
 
-    private:
+        virtual void _ChangeViewport(const SMALL_RECT NewWindow) = 0;
+        virtual void _TranslatePointToScreen(LPPOINT clientPoint) const = 0;
+        virtual void _TranslatePointFromScreen(LPPOINT screenPoint) const = 0;
+
         // degenerate range
-        UiaTextRange(_In_ IRawElementProviderSimple* const pProvider);
+        UiaTextRangeBase(_In_ IUiaData* pData,
+                         _In_ IRawElementProviderSimple* const pProvider);
 
         // degenerate range at cursor position
-        UiaTextRange(_In_ IRawElementProviderSimple* const pProvider,
-                     const Cursor& cursor);
+        UiaTextRangeBase(_In_ IUiaData* pData,
+                         _In_ IRawElementProviderSimple* const pProvider,
+                         const Cursor& cursor);
 
         // specific endpoint range
-        UiaTextRange(_In_ IRawElementProviderSimple* const pProvider,
-                     const Endpoint start,
-                     const Endpoint end,
-                     const bool degenerate);
+        UiaTextRangeBase(_In_ IUiaData* pData,
+                         _In_ IRawElementProviderSimple* const pProvider,
+                         const Endpoint start,
+                         const Endpoint end,
+                         const bool degenerate);
 
-        // range from a UiaPoint
-        UiaTextRange(_In_ IRawElementProviderSimple* const pProvider,
-                     const UiaPoint point);
+        void Initialize(_In_ const UiaPoint point);
 
-        UiaTextRange(const UiaTextRange& a);
+        UiaTextRangeBase(const UiaTextRangeBase& a);
 
         // used to debug objects passed back and forth
         // between the provider and the client
@@ -264,105 +257,125 @@ namespace Microsoft::Console::Interactivity::Win32
         // then both endpoints will contain the same value.
         bool _degenerate;
 
-        static const Microsoft::Console::Types::Viewport& _getViewport();
-        static HWND _getWindowHandle();
-        static IConsoleWindow* const _getIConsoleWindow();
-        static SCREEN_INFORMATION& _getScreenInfo();
-        static TextBuffer& _getTextBuffer();
-        static const COORD _getScreenBufferCoords();
+        RECT _getTerminalRect() const;
 
-        static const unsigned int _getTotalRows();
-        static const unsigned int _getRowWidth();
+        static const COORD _getScreenBufferCoords(IUiaData* pData);
+        virtual const COORD _getScreenFontSize() const;
+
+        static const unsigned int _getTotalRows(IUiaData* pData);
+        static const unsigned int _getRowWidth(IUiaData* pData);
 
         static const unsigned int _getFirstScreenInfoRowIndex();
-        static const unsigned int _getLastScreenInfoRowIndex();
+        static const unsigned int _getLastScreenInfoRowIndex(IUiaData* pData);
 
         static const Column _getFirstColumnIndex();
-        static const Column _getLastColumnIndex();
+        static const Column _getLastColumnIndex(IUiaData* pData);
 
-        const unsigned int _rowCountInRange() const;
+        const unsigned int _rowCountInRange(IUiaData* pData) const;
 
-        static const TextBufferRow _endpointToTextBufferRow(const Endpoint endpoint);
-        static const ScreenInfoRow _textBufferRowToScreenInfoRow(const TextBufferRow row);
+        static const TextBufferRow _endpointToTextBufferRow(IUiaData* pData,
+                                                            const Endpoint endpoint);
+        static const ScreenInfoRow _textBufferRowToScreenInfoRow(IUiaData* pData,
+                                                                 const TextBufferRow row);
 
-        static const TextBufferRow _screenInfoRowToTextBufferRow(const ScreenInfoRow row);
-        static const Endpoint _textBufferRowToEndpoint(const TextBufferRow row);
+        static const TextBufferRow _screenInfoRowToTextBufferRow(IUiaData* pData,
+                                                                 const ScreenInfoRow row);
+        static const Endpoint _textBufferRowToEndpoint(IUiaData* pData, const TextBufferRow row);
 
-        static const ScreenInfoRow _endpointToScreenInfoRow(const Endpoint endpoint);
-        static const Endpoint _screenInfoRowToEndpoint(const ScreenInfoRow row);
+        static const ScreenInfoRow _endpointToScreenInfoRow(IUiaData* pData,
+                                                            const Endpoint endpoint);
+        static const Endpoint _screenInfoRowToEndpoint(IUiaData* pData,
+                                                       const ScreenInfoRow row);
 
-        static COORD _endpointToCoord(const Endpoint endpoint);
-        static Endpoint _coordToEndpoint(const COORD coord);
+        static COORD _endpointToCoord(IUiaData* pData,
+                                      const Endpoint endpoint);
+        static Endpoint _coordToEndpoint(IUiaData* pData,
+                                         const COORD coord);
 
-        static const Column _endpointToColumn(const Endpoint endpoint);
+        static const Column _endpointToColumn(IUiaData* pData,
+                                              const Endpoint endpoint);
 
-        static const Row _normalizeRow(const Row row);
+        static const Row _normalizeRow(IUiaData* pData, const Row row);
 
-        static const ViewportRow _screenInfoRowToViewportRow(const ScreenInfoRow row);
+        static const ViewportRow _screenInfoRowToViewportRow(IUiaData* pData,
+                                                             const ScreenInfoRow row);
         static const ViewportRow _screenInfoRowToViewportRow(const ScreenInfoRow row,
                                                              const SMALL_RECT viewport);
 
-        static const bool _isScreenInfoRowInViewport(const ScreenInfoRow row);
+        static const bool _isScreenInfoRowInViewport(IUiaData* pData,
+                                                     const ScreenInfoRow row);
         static const bool _isScreenInfoRowInViewport(const ScreenInfoRow row,
                                                      const SMALL_RECT viewport);
 
         static const unsigned int _getViewportHeight(const SMALL_RECT viewport);
         static const unsigned int _getViewportWidth(const SMALL_RECT viewport);
 
-        void _addScreenInfoRowBoundaries(const ScreenInfoRow screenInfoRow,
+        void _addScreenInfoRowBoundaries(IUiaData* pData,
+                                         const ScreenInfoRow screenInfoRow,
                                          _Inout_ std::vector<double>& coords) const;
 
-        static const int _compareScreenCoords(const ScreenInfoRow rowA,
+        static const int _compareScreenCoords(IUiaData* pData,
+                                              const ScreenInfoRow rowA,
                                               const Column colA,
                                               const ScreenInfoRow rowB,
                                               const Column colB);
 
-        static std::pair<Endpoint, Endpoint> _moveByCharacter(const int moveCount,
+        static std::pair<Endpoint, Endpoint> _moveByCharacter(IUiaData* pData,
+                                                              const int moveCount,
                                                               const MoveState moveState,
                                                               _Out_ int* const pAmountMoved);
 
-        static std::pair<Endpoint, Endpoint> _moveByCharacterForward(const int moveCount,
+        static std::pair<Endpoint, Endpoint> _moveByCharacterForward(IUiaData* pData,
+                                                                     const int moveCount,
                                                                      const MoveState moveState,
                                                                      _Out_ int* const pAmountMoved);
 
-        static std::pair<Endpoint, Endpoint> _moveByCharacterBackward(const int moveCount,
+        static std::pair<Endpoint, Endpoint> _moveByCharacterBackward(IUiaData* pData,
+                                                                      const int moveCount,
                                                                       const MoveState moveState,
                                                                       _Out_ int* const pAmountMoved);
 
-        static std::pair<Endpoint, Endpoint> _moveByLine(const int moveCount,
+        static std::pair<Endpoint, Endpoint> _moveByLine(IUiaData* pData,
+                                                         const int moveCount,
                                                          const MoveState moveState,
                                                          _Out_ int* const pAmountMoved);
 
-        static std::pair<Endpoint, Endpoint> _moveByDocument(const int moveCount,
+        static std::pair<Endpoint, Endpoint> _moveByDocument(IUiaData* pData,
+                                                             const int moveCount,
                                                              const MoveState moveState,
                                                              _Out_ int* const pAmountMoved);
 
         static std::tuple<Endpoint, Endpoint, bool>
-        _moveEndpointByUnitCharacter(const int moveCount,
+        _moveEndpointByUnitCharacter(IUiaData* pData,
+                                     const int moveCount,
                                      const TextPatternRangeEndpoint endpoint,
                                      const MoveState moveState,
                                      _Out_ int* const pAmountMoved);
 
         static std::tuple<Endpoint, Endpoint, bool>
-        _moveEndpointByUnitCharacterForward(const int moveCount,
+        _moveEndpointByUnitCharacterForward(IUiaData* pData,
+                                            const int moveCount,
                                             const TextPatternRangeEndpoint endpoint,
                                             const MoveState moveState,
                                             _Out_ int* const pAmountMoved);
 
         static std::tuple<Endpoint, Endpoint, bool>
-        _moveEndpointByUnitCharacterBackward(const int moveCount,
+        _moveEndpointByUnitCharacterBackward(IUiaData* pData,
+                                             const int moveCount,
                                              const TextPatternRangeEndpoint endpoint,
                                              const MoveState moveState,
                                              _Out_ int* const pAmountMoved);
 
         static std::tuple<Endpoint, Endpoint, bool>
-        _moveEndpointByUnitLine(const int moveCount,
+        _moveEndpointByUnitLine(IUiaData* pData,
+                                const int moveCount,
                                 const TextPatternRangeEndpoint endpoint,
                                 const MoveState moveState,
                                 _Out_ int* const pAmountMoved);
 
         static std::tuple<Endpoint, Endpoint, bool>
-        _moveEndpointByUnitDocument(const int moveCount,
+        _moveEndpointByUnitDocument(IUiaData* pData,
+                                    const int moveCount,
                                     const TextPatternRangeEndpoint endpoint,
                                     const MoveState moveState,
                                     _Out_ int* const pAmountMoved);
@@ -372,7 +385,7 @@ namespace Microsoft::Console::Interactivity::Win32
 #endif
     };
 
-    namespace UiaTextRangeTracing
+    namespace UiaTextRangeBaseTracing
     {
         enum class ApiCall
         {
