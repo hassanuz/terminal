@@ -83,11 +83,11 @@ namespace Cascadia.UI.Tests
             }
             else if (type.Contains("About"))
             {
-                Y = 550;
+                Y = 650;
             }
             else
             {
-               Y = 250;
+               Y = 650;
             }
 
             WindowsElement plusTab = session.FindElementByAccessibilityId("TabView");
