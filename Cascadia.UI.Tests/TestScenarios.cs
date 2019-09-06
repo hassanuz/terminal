@@ -80,7 +80,7 @@ namespace Cascadia.UI.Tests
 
             if (type.Contains("cmd"))
             {
-                Y = 200;
+                Y = 100;
             }
             else if (type.Contains("About"))
             {
