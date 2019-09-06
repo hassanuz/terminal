@@ -96,7 +96,7 @@ namespace Cascadia.UI.Tests
             ActionSequence sequence = new ActionSequence(penDevice, 0);
             ActionSequence sequence2 = new ActionSequence(penDevice, 0);
 
-            sequence.AddAction(penDevice.CreatePointerMove(plusTab, 300, 0, TimeSpan.Zero));
+            sequence.AddAction(penDevice.CreatePointerMove(plusTab, 210, 0, TimeSpan.Zero));
             sequence.AddAction(penDevice.CreatePointerDown(PointerButton.TouchContact));
             sequence.AddAction(penDevice.CreatePointerMove(CoordinateOrigin.Pointer, 0, 0, TimeSpan.Zero));
             sequence.AddAction(penDevice.CreatePointerUp(PointerButton.TouchContact));
