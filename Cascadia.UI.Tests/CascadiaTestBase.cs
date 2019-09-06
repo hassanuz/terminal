@@ -33,7 +33,7 @@ namespace Cascadia.UI.Tests
         protected static WindowsDriver<WindowsElement> session;
         protected static WindowsDriver<WindowsElement> DesktopSession;
         private TestContext testContextInstance;
-        private const int hostedAgentTimer = 145000; //45000
+        private const int hostedAgentTimer = 0; //45000
 
         public static void Setup(TestContext context)
         {
@@ -44,7 +44,6 @@ namespace Cascadia.UI.Tests
                 appCapabilities.SetCapability("deviceName", "WindowsPC");
                 DesktopSession = null;
                 appCapabilities.SetCapability("app", AppId);
-                Thread.Sleep(10000);
                 try
                 {
                     Console.WriteLine("Trying to Launch App");
@@ -53,12 +52,12 @@ namespace Cascadia.UI.Tests
                 catch {
                     Console.WriteLine("Failed to attach to app session (expected).");
                 }
-                //Setting thread sleep timer. Hosted Agents take approximately 35 seconds to launch app
+                //Setting thread sleep timer. Hosted Agents take approximately 120 seconds to launch app
                 Thread.Sleep(hostedAgentTimer);
                 appCapabilities.SetCapability("app", "Root");
                 DesktopSession = new WindowsDriver<WindowsElement>(new Uri(WindowsApplicationDriverUrl), appCapabilities);
                 Console.WriteLine("Attaching to MSIXCatalogMainWindow");
-                var mainWindow = DesktopSession.FindElementByClassName("CASCADIA_HOSTING_WINDOW_CLASS");
+                var mainWindow = DesktopSession.FindElementByAccessibilityId("Console Window");
                 Console.WriteLine("Getting Window Handle");
                 var mainWindowHandle = mainWindow.GetAttribute("NativeWindowHandle");
                 mainWindowHandle = (int.Parse(mainWindowHandle)).ToString("x"); // Convert to Hex
@@ -66,24 +65,23 @@ namespace Cascadia.UI.Tests
                 appCapabilities.SetCapability("appTopLevelWindow", mainWindowHandle);
                 session = new WindowsDriver<WindowsElement>(new Uri(WindowsApplicationDriverUrl), appCapabilities);
                 Assert.IsNotNull(session);
-                session.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(3.5);
+                session.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(5);
             }
         }
 
         public static void TearDown()
         {
             // Close the application and delete the session
-            while(session != null){
-                try
-                {
-                    session.Keyboard.SendKeys(Keys.LeftControl + "w");
-                }
-                catch
-                {
-                    session.Quit();
-                    session = null;
-                }
+            /*
+            if (session != null)
+            {
+                session.FindElementByName("Close").Click();
+            
+                session.Quit();
+                session = null;
+
             }
+            */
         }
 
         public TestContext TestContext

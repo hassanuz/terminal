@@ -35,13 +35,14 @@ namespace Cascadia.UI.Tests
         public static void ClassInitialize(TestContext context)
         {
             Setup(context);
-       
 
         }
 
         [ClassCleanup]
         public static void ClassCleanup()
         {
+            WindowsElement closeButton = session.FindElementByAccessibilityId("CloseButton");
+            closeButton.Click();
             TearDown();
         }
 
@@ -49,91 +50,107 @@ namespace Cascadia.UI.Tests
         [TestInitialize]
         public void Clear()
         {
-/*
-            WindowsElement checkX = null;
-            try
-            {
-                checkX = session.FindElementByAccessibilityId("CloseButton");
-            }
-            catch { }
-            while (checkX != null)
-            {
-                session.FindElementByAccessibilityId("CloseButton").Click();
-                try
-                {
-                    checkX = session.FindElementByAccessibilityId("CloseButton");
-                } catch {
-                    checkX = null;
-                }
-            }
-            session.Keyboard.SendKeys(Keys.Enter);
-            session.Keyboard.SendKeys(Keys.LeftControl + "t" + Keys.LeftControl);   
-
-    */
+      
         }
 
 
         [TestMethod]
         public void LaunchCMD()
         {
-            WindowsElement plusTab = session.FindElementByXPath("/Pane[@ClassName=\"#32769\"][@Name=\"Desktop 1\"]/Window[@ClassName=\"CASCADIA_HOSTING_WINDOW_CLASS\"][@Name=\"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\"]/Pane[@ClassName=\"Windows.UI.Composition.DesktopWindowContentBridge\"][@Name=\"DesktopWindowXamlSource\"]/Pane[@ClassName=\"Windows.UI.Input.InputSite.WindowClass\"]/SplitButton[@ClassName=\"Windows.UI.Xaml.Controls.SplitButton\"]");
-            //Store.Click();
+
+            ActionsLaunch("cmd");
+            Assert.IsNotNull(session.FindElementByAccessibilityId("Console Window"));
+            
+        }
+        [TestMethod]
+        public void LaunchAbout()
+        {
+            ActionsLaunch("About");
+            Thread.Sleep(1000);
+            session.Keyboard.SendKeys(Keys.Escape);
+
+        }
+        private void ActionsLaunch(String type)
+        {
+
+            int Y = 300;
+
+            if (type.Contains("cmd"))
+            {
+                Y = 200;
+            }
+            else if (type.Contains("About"))
+            {
+                Y = 400;
+            }
+            else
+            {
+               Y = 250;
+            }
+
+            WindowsElement plusTab = session.FindElementByAccessibilityId("TabView");
             PointerInputDevice penDevice = new PointerInputDevice(PointerKind.Touch);
             ActionSequence sequence = new ActionSequence(penDevice, 0);
             ActionSequence sequence2 = new ActionSequence(penDevice, 0);
-            sequence.AddAction(penDevice.CreatePointerMove(plusTab, 30, 0, TimeSpan.Zero));
+
+            sequence.AddAction(penDevice.CreatePointerMove(plusTab, 140, 0, TimeSpan.Zero));
             sequence.AddAction(penDevice.CreatePointerDown(PointerButton.TouchContact));
             sequence.AddAction(penDevice.CreatePointerMove(CoordinateOrigin.Pointer, 0, 0, TimeSpan.Zero));
             sequence.AddAction(penDevice.CreatePointerUp(PointerButton.TouchContact));
             session.PerformActions(new List<ActionSequence> { sequence });
             Thread.Sleep(1000);
-            sequence2.AddAction(penDevice.CreatePointerMove(CoordinateOrigin.Pointer, 0, 200, TimeSpan.Zero));
+            sequence2.AddAction(penDevice.CreatePointerMove(CoordinateOrigin.Pointer, 0, Y, TimeSpan.Zero));
             sequence2.AddAction(penDevice.CreatePointerDown(PointerButton.TouchContact));
-            sequence2.AddAction(penDevice.CreatePointerMove(CoordinateOrigin.Pointer, 0, 200, TimeSpan.FromMilliseconds(50)));
+            sequence2.AddAction(penDevice.CreatePointerMove(CoordinateOrigin.Pointer, 0, Y, TimeSpan.FromMilliseconds(50)));
             sequence2.AddAction(penDevice.CreatePointerUp(PointerButton.TouchContact));
             session.PerformActions(new List<ActionSequence> { sequence2 });
-            Assert.IsNotNull(session.FindElementByName("C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"));
         }
-        /*
-        [TestMethod]
-        public void Feedback()
+        private WindowsElement FindElementByAbsoluteXPath(string xPath, int nTryCount = 10)
         {
-            WindowsElement plusTab = session.FindElementByXPath("/Pane[@ClassName=\"#32769\"][@Name=\"Desktop 1\"]/Window[@ClassName=\"CASCADIA_HOSTING_WINDOW_CLASS\"][@Name=\"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\"]/Pane[@ClassName=\"Windows.UI.Composition.DesktopWindowContentBridge\"][@Name=\"DesktopWindowXamlSource\"]/Pane[@ClassName=\"Windows.UI.Input.InputSite.WindowClass\"]/SplitButton[@ClassName=\"Windows.UI.Xaml.Controls.SplitButton\"]");
-            //Store.Click();
-            PointerInputDevice penDevice = new PointerInputDevice(PointerKind.Touch);
-            ActionSequence sequence = new ActionSequence(penDevice, 0);
-            ActionSequence sequence2 = new ActionSequence(penDevice, 0);
-            sequence.AddAction(penDevice.CreatePointerMove(plusTab, 30, 0, TimeSpan.Zero));
-            sequence.AddAction(penDevice.CreatePointerDown(PointerButton.TouchContact));
-            sequence.AddAction(penDevice.CreatePointerMove(CoordinateOrigin.Pointer, 0, 0, TimeSpan.Zero));
-            sequence.AddAction(penDevice.CreatePointerUp(PointerButton.TouchContact));
-            session.PerformActions(new List<ActionSequence> { sequence });
-            Thread.Sleep(1000);
-            WindowsElement FeedBackButton = session.FindElementByName("Feedback");
-            FeedBackButton.Click();
-            session.Keyboard.SendKeys(Keys.Alt + Keys.Tab + Keys.Alt + Keys.Tab);
-        }
-        */
+            WindowsElement uiTarget = null;
 
+            while (nTryCount-- > 0)
+            {
+                try
+                {
+                    uiTarget = session.FindElementByXPath(xPath);
+                }
+                catch
+                {
+                }
+
+                if (uiTarget != null)
+                {
+                    break;
+                }
+                else
+                {
+                    System.Threading.Thread.Sleep(2000);
+                }
+            }
+
+            return uiTarget;
+        }
+  
         [TestMethod]
         public void CreateAndCloseMultipleTabs()
         {
-
             Assert.IsNotNull(session.FindElementByAccessibilityId("CloseButton"));
-            session.Keyboard.SendKeys(Keys.LeftControl + "t" + Keys.LeftControl);
-            session.Keyboard.SendKeys(Keys.LeftControl + "t" + Keys.LeftControl);
-            session.FindElementByAccessibilityId("CloseButton").Click();
+            session.Keyboard.SendKeys(Keys.LeftControl + Keys.LeftShift +  "1" + Keys.Shift + Keys.LeftControl);
             Thread.Sleep(1000);
-            session.FindElementByAccessibilityId("CloseButton").Click();
+            session.Keyboard.SendKeys(Keys.LeftControl + Keys.LeftShift + "2" + Keys.Shift + Keys.LeftControl);
             Thread.Sleep(1000);
-
+            session.Keyboard.SendKeys(Keys.LeftControl + Keys.LeftShift + "w" + Keys.Shift + Keys.LeftControl);
+            Thread.Sleep(1000);
+            session.Keyboard.SendKeys(Keys.LeftControl + Keys.LeftShift + "w" + Keys.Shift + Keys.LeftControl);
+            session.FindElementByClassName("TermControl").Click();
             WindowsElement closeButton = null;
             try
             {
                 closeButton = session.FindElementByAccessibilityId("CloseButton");
             }
             catch { }
-            Assert.IsNotNull(closeButton);
+            //Assert.IsNull(closeButton);
         }
     }
 }
