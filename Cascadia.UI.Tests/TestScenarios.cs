@@ -60,7 +60,9 @@ namespace Cascadia.UI.Tests
 
             ActionsLaunch("cmd");
             Assert.IsNotNull(session.FindElementByAccessibilityId("Console Window"));
-            
+            session.Keyboard.SendKeys(Keys.LeftControl + Keys.LeftShift + "w" + Keys.Shift + Keys.LeftControl);
+
+
         }
         [TestMethod]
         public void LaunchAbout()
@@ -136,9 +138,17 @@ namespace Cascadia.UI.Tests
         public void CreateAndCloseMultipleTabs()
         {
             Assert.IsNotNull(session.FindElementByAccessibilityId("CloseButton"));
-            session.Keyboard.SendKeys(Keys.LeftControl + Keys.LeftShift +  "1" + Keys.Shift + Keys.LeftControl);
+            session.Keyboard.SendKeys(Keys.LeftControl + Keys.LeftShift +  "2" + Keys.Shift + Keys.LeftControl);
             Thread.Sleep(1000);
             session.Keyboard.SendKeys(Keys.LeftControl + Keys.LeftShift + "2" + Keys.Shift + Keys.LeftControl);
+            Thread.Sleep(1000);
+            session.Keyboard.SendKeys(Keys.LeftControl + Keys.LeftShift + "2" + Keys.Shift + Keys.LeftControl);
+            Thread.Sleep(1000);
+            session.Keyboard.SendKeys(Keys.LeftControl + Keys.LeftShift + "2" + Keys.Shift + Keys.LeftControl);
+            Thread.Sleep(1000);
+            session.Keyboard.SendKeys(Keys.LeftControl + Keys.LeftShift + "w" + Keys.Shift + Keys.LeftControl);
+            Thread.Sleep(1000);
+            session.Keyboard.SendKeys(Keys.LeftControl + Keys.LeftShift + "w" + Keys.Shift + Keys.LeftControl);
             Thread.Sleep(1000);
             session.Keyboard.SendKeys(Keys.LeftControl + Keys.LeftShift + "w" + Keys.Shift + Keys.LeftControl);
             Thread.Sleep(1000);
