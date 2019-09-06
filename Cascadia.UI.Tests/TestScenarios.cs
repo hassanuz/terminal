@@ -84,7 +84,7 @@ namespace Cascadia.UI.Tests
             }
             else if (type.Contains("About"))
             {
-                Y = 450;
+                Y = 300;
             }
             else
             {
