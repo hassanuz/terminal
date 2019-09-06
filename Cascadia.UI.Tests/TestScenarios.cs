@@ -102,9 +102,9 @@ namespace Cascadia.UI.Tests
             session.PerformActions(new List<ActionSequence> { sequence });
            
             Thread.Sleep(2000);
-            sequence2.AddAction(penDevice.CreatePointerMove(CoordinateOrigin.Pointer, 0, 800, TimeSpan.Zero));
+            sequence2.AddAction(penDevice.CreatePointerMove(CoordinateOrigin.Pointer, 0, 420, TimeSpan.Zero));
             sequence2.AddAction(penDevice.CreatePointerDown(PointerButton.TouchContact));
-            sequence2.AddAction(penDevice.CreatePointerMove(CoordinateOrigin.Pointer, 0, 0, TimeSpan.FromMilliseconds(50)));
+            sequence2.AddAction(penDevice.CreatePointerMove(CoordinateOrigin.Pointer, 0, 1, TimeSpan.FromMilliseconds(50)));
             sequence2.AddAction(penDevice.CreatePointerUp(PointerButton.TouchContact));
             session.PerformActions(new List<ActionSequence> { sequence2 });
         }
