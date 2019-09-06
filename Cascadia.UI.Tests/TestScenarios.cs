@@ -95,12 +95,13 @@ namespace Cascadia.UI.Tests
             ActionSequence sequence = new ActionSequence(penDevice, 0);
             ActionSequence sequence2 = new ActionSequence(penDevice, 0);
 
-            sequence.AddAction(penDevice.CreatePointerMove(plusTab, 300, 0, TimeSpan.Zero));
+            sequence.AddAction(penDevice.CreatePointerMove(plusTab, 200, 0, TimeSpan.Zero));
             sequence.AddAction(penDevice.CreatePointerDown(PointerButton.TouchContact));
             sequence.AddAction(penDevice.CreatePointerMove(CoordinateOrigin.Pointer, 0, 0, TimeSpan.Zero));
             sequence.AddAction(penDevice.CreatePointerUp(PointerButton.TouchContact));
             session.PerformActions(new List<ActionSequence> { sequence });
-            Thread.Sleep(1000);
+           
+            Thread.Sleep(5000);
             sequence2.AddAction(penDevice.CreatePointerMove(CoordinateOrigin.Pointer, 0, Y, TimeSpan.Zero));
             sequence2.AddAction(penDevice.CreatePointerDown(PointerButton.TouchContact));
             sequence2.AddAction(penDevice.CreatePointerMove(CoordinateOrigin.Pointer, 0, Y, TimeSpan.FromMilliseconds(50)));
