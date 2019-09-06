@@ -59,6 +59,7 @@ namespace Cascadia.UI.Tests
         {
 
             ActionsLaunch("cmd");
+            Thread.Sleep(2000);
             Assert.IsNotNull(session.FindElementByAccessibilityId("Console Window"));
             session.Keyboard.SendKeys(Keys.LeftControl + Keys.LeftShift + "w" + Keys.Shift + Keys.LeftControl);
 
@@ -83,7 +84,7 @@ namespace Cascadia.UI.Tests
             }
             else if (type.Contains("About"))
             {
-                Y = 650;
+                Y = 450;
             }
             else
             {
@@ -95,14 +96,14 @@ namespace Cascadia.UI.Tests
             ActionSequence sequence = new ActionSequence(penDevice, 0);
             ActionSequence sequence2 = new ActionSequence(penDevice, 0);
 
-            sequence.AddAction(penDevice.CreatePointerMove(plusTab, 200, 0, TimeSpan.Zero));
+            sequence.AddAction(penDevice.CreatePointerMove(plusTab, 300, 0, TimeSpan.Zero));
             sequence.AddAction(penDevice.CreatePointerDown(PointerButton.TouchContact));
             sequence.AddAction(penDevice.CreatePointerMove(CoordinateOrigin.Pointer, 0, 0, TimeSpan.Zero));
             sequence.AddAction(penDevice.CreatePointerUp(PointerButton.TouchContact));
             session.PerformActions(new List<ActionSequence> { sequence });
            
             Thread.Sleep(2000);
-            sequence2.AddAction(penDevice.CreatePointerMove(CoordinateOrigin.Pointer, 0, 420, TimeSpan.Zero));
+            sequence2.AddAction(penDevice.CreatePointerMove(CoordinateOrigin.Pointer, 0, Y, TimeSpan.Zero));
             sequence2.AddAction(penDevice.CreatePointerDown(PointerButton.TouchContact));
             sequence2.AddAction(penDevice.CreatePointerMove(CoordinateOrigin.Pointer, 0, 1, TimeSpan.FromMilliseconds(50)));
             sequence2.AddAction(penDevice.CreatePointerUp(PointerButton.TouchContact));
