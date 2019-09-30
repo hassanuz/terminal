@@ -33,7 +33,7 @@ namespace Cascadia.UI.Tests
         protected static WindowsDriver<WindowsElement> session;
         protected static WindowsDriver<WindowsElement> DesktopSession;
         private TestContext testContextInstance;
-        private const int hostedAgentTimer = 20000; //45000
+        private const int hostedAgentTimer = 0; //45000
 
         public static void Setup(TestContext context)
         {
